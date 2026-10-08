@@ -1,0 +1,6 @@
+{
+  "name": "Parsec Gamepad Overlay - ADB Native Android Controller",
+  "description": "Aplicación Android nativa con servicio flotante WindowManager y emulación de Gamepad Keycodes vía Wireless Debugging ADB local sobre Parsec.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
