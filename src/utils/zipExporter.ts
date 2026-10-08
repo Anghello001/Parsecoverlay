@@ -71,13 +71,25 @@ export async function downloadAndroidProjectZip(): Promise<void> {
     zip.file(file.path, file.content);
   }
 
-  // Add executable gradlew wrapper script
-  zip.file('gradlew', GRADLEW_SCRIPT, {
+  // Add executable gradlew wrapper script with strict UNIX LF line endings
+  zip.file('gradlew', GRADLEW_SCRIPT.replace(/\r\n/g, '\n'), {
     unixPermissions: '755',
   });
 
   // Add gradle/wrapper/gradle-wrapper.properties
-  zip.file('gradle/wrapper/gradle-wrapper.properties', GRADLE_WRAPPER_PROPERTIES);
+  zip.file('gradle/wrapper/gradle-wrapper.properties', GRADLE_WRAPPER_PROPERTIES.replace(/\r\n/g, '\n'));
+
+  // Add build.sh helper script for Android/Termux/AIDE environments
+  const BUILD_HELPER = `#!/bin/sh
+echo "Iniciando compilación en Android/AIDE..."
+if [ -f "./gradlew" ]; then
+    chmod +x ./gradlew
+    sh ./gradlew assembleDebug
+else
+    echo "Error: Ejecuta este script dentro de la carpeta del proyecto donde está gradlew"
+fi
+`.replace(/\r\n/g, '\n');
+  zip.file('build.sh', BUILD_HELPER, { unixPermissions: '755' });
 
   // Generate zip blob and trigger download
   const blob = await zip.generateAsync({ type: 'blob' });

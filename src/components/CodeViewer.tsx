@@ -77,6 +77,31 @@ export const CodeViewer: React.FC = () => {
         </div>
       </div>
 
+      {/* BANNER DE SOLUCIÓN AL ERROR DE AIDE (CÓDIGO 127: ./gradlew: No such file or directory) */}
+      <div className="bg-[#181a22] border-b border-[#2b313e] p-3 text-xs">
+        <div className="bg-[#13151b] border border-[#f59e0b]/30 p-2.5 flex items-start gap-3">
+          <span className="text-amber-400 text-base font-bold shrink-0">⚠️</span>
+          <div className="space-y-1 text-[#c7ccd4]">
+            <div className="font-bold text-[#f59e0b] uppercase text-[11px] tracking-wide">
+              ¿Te sale en AIDE: "bash: ./gradlew: No such file or directory (Failed: 127)"?
+            </div>
+            <p className="text-[11px] text-[#9ca3af]">
+              Esto ocurre porque la terminal de AIDE se abrió fuera de la carpeta o porque el almacenamiento de Android bloquea la ejecución con <code className="bg-black/60 px-1 py-0.5 text-amber-300">./</code>. Sigue estos 2 pasos para resolverlo:
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2 pt-1 font-mono text-[10px]">
+              <div className="bg-black/40 border border-[#262a33] p-2">
+                <span className="text-[#34d399] font-bold block mb-1">MÉTODO 1: Nativo en AIDE (Recomendado sin terminal)</span>
+                <span>1. Descomprime el ZIP en tu teléfono.<br/>2. En AIDE toca: <b>Abrir Proyecto</b> y selecciona la carpeta descomprimida.<br/>3. Pulsa el botón <b>PLAY (▶ RUN)</b> en la esquina superior. ¡AIDE compila el APK automáticamente sin requerir gradlew!</span>
+              </div>
+              <div className="bg-black/40 border border-[#262a33] p-2">
+                <span className="text-sky-400 font-bold block mb-1">MÉTODO 2: Por Terminal / SSH dbclient</span>
+                <span>1. Entra a la carpeta descomprimida:<br/><code className="text-amber-300">cd /sdcard/Download/OverlayGamepad</code><br/>2. Ejecuta con <b>sh</b> en lugar de <b>./</b>:<br/><code className="text-[#34d399]">sh gradlew assembleDebug</code></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-12 min-h-[580px]">
         {/* Sidebar Archivos */}
         <div className="lg:col-span-4 bg-[#111317] border-r border-[#262a33] p-2 space-y-1 overflow-y-auto">
