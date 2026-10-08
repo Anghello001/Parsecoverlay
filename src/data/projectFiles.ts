@@ -432,40 +432,96 @@ class OverlayService : Service() {
             WindowManager.LayoutParams.TYPE_PHONE
         }
 
-        // FLAG_NOT_FOCUSABLE: esencial para que Parsec conserve el foco de video y sonido
+        // MATCH_PARENT a pantalla completa con fondo 100% transparente
         val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
             layoutType,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                     WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT
         ).apply {
-            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-            x = 0
-            y = 100
+            gravity = Gravity.TOP or Gravity.START
         }
 
         val inflater = LayoutInflater.from(this)
         overlayView = inflater.inflate(R.layout.layout_overlay_gamepad, null)
 
-        val btnClose = overlayView!!.findViewById<ImageButton>(R.id.btnCloseOverlay)
-        val dragHandle = overlayView!!.findViewById<View>(R.id.ivDragHandle)
+        val controlsContainer = overlayView!!.findViewById<View>(R.id.controlsContainer)
+        val btnToggleVisibility = overlayView!!.findViewById<ImageButton>(R.id.btnToggleVisibility)
+        val btnScale = overlayView!!.findViewById<Button>(R.id.btnScale)
+        val clusterLeft = overlayView!!.findViewById<View>(R.id.clusterLeft)
+        val clusterRight = overlayView!!.findViewById<View>(R.id.clusterRight)
 
-        btnClose.setOnClickListener { stopSelf() }
-        setupDragTouchListener(dragHandle, params)
+        // Control de Escala (Cambiar tamaño sin colisión de botones)
+        val scalePresets = floatArrayOf(0.85f, 1.0f, 1.2f)
+        val scaleLabels = arrayOf("TAMAÑO: S", "TAMAÑO: M", "TAMAÑO: L")
+        var scaleIndex = 1
 
-        // Botones de Acción (A, B, X, Y)
+        btnScale.setOnClickListener {
+            scaleIndex = (scaleIndex + 1) % scalePresets.size
+            val s = scalePresets[scaleIndex]
+            btnScale.text = scaleLabels[scaleIndex]
+
+            // Pivote en las esquinas inferiores para evitar colisiones
+            clusterLeft.pivotX = 0f
+            clusterLeft.pivotY = clusterLeft.height.toFloat()
+            clusterLeft.scaleX = s
+            clusterLeft.scaleY = s
+
+            clusterRight.pivotX = clusterRight.width.toFloat()
+            clusterRight.pivotY = clusterRight.height.toFloat()
+            clusterRight.scaleX = s
+            clusterRight.scaleY = s
+        }
+
+        // Botón para ocultar/mostrar controles durante el juego
+        btnToggleVisibility.setOnClickListener {
+            if (controlsContainer.visibility == View.VISIBLE) {
+                controlsContainer.visibility = View.GONE
+                btnToggleVisibility.alpha = 0.4f
+            } else {
+                controlsContainer.visibility = View.VISIBLE
+                btnToggleVisibility.alpha = 1.0f
+            }
+        }
+
+        // Joystick Izquierdo (Arriba a la izquierda en Xbox)
+        val joystickLeft = overlayView!!.findViewById<JoystickView>(R.id.joystickLeft)
+        joystickLeft.onJoystickMove = { x, y ->
+            serviceScope.launch {
+                val threshold = 0.5f
+                if (y < -threshold) injectKeycode(KEYCODE_DPAD_UP, true)
+                if (y > threshold) injectKeycode(KEYCODE_DPAD_DOWN, true)
+                if (x < -threshold) injectKeycode(KEYCODE_DPAD_LEFT, true)
+                if (x > threshold) injectKeycode(KEYCODE_DPAD_RIGHT, true)
+            }
+        }
+
+        // Joystick Derecho (Abajo a la derecha en Xbox)
+        val joystickRight = overlayView!!.findViewById<JoystickView>(R.id.joystickRight)
+        joystickRight.onJoystickMove = { x, y ->
+            // Inyección de eje analógico
+        }
+
+        // Botones de Acción XYAB (Arriba a la derecha en Xbox)
         setupGamepadButton(overlayView!!.findViewById(R.id.btnActionA), KEYCODE_BUTTON_A)
         setupGamepadButton(overlayView!!.findViewById(R.id.btnActionB), KEYCODE_BUTTON_B)
         setupGamepadButton(overlayView!!.findViewById(R.id.btnActionX), KEYCODE_BUTTON_X)
         setupGamepadButton(overlayView!!.findViewById(R.id.btnActionY), KEYCODE_BUTTON_Y)
 
-        // Cruceta Direccional (D-Pad)
+        // Cruceta D-Pad (Abajo a la izquierda en Xbox)
         setupGamepadButton(overlayView!!.findViewById(R.id.btnDpadUp), KEYCODE_DPAD_UP)
         setupGamepadButton(overlayView!!.findViewById(R.id.btnDpadDown), KEYCODE_DPAD_DOWN)
         setupGamepadButton(overlayView!!.findViewById(R.id.btnDpadLeft), KEYCODE_DPAD_LEFT)
         setupGamepadButton(overlayView!!.findViewById(R.id.btnDpadRight), KEYCODE_DPAD_RIGHT)
+
+        // Gatillos y Bumpers
+        setupGamepadButton(overlayView!!.findViewById(R.id.btnTriggerLT), KEYCODE_BUTTON_L2)
+        setupGamepadButton(overlayView!!.findViewById(R.id.btnBumperLB), KEYCODE_BUTTON_L1)
+        setupGamepadButton(overlayView!!.findViewById(R.id.btnBumperRB), KEYCODE_BUTTON_R1)
+        setupGamepadButton(overlayView!!.findViewById(R.id.btnTriggerRT), KEYCODE_BUTTON_R2)
 
         windowManager.addView(overlayView, params)
     }
@@ -592,166 +648,409 @@ class OverlayService : Service() {
 }`,
   },
   {
+    name: 'JoystickView.kt',
+    path: 'app/src/main/java/com/anghello/overlaygamepad/JoystickView.kt',
+    language: 'kotlin',
+    category: 'kotlin',
+    description: 'Componente nativo de Joystick analógico táctil con pointerId independiente para evitar cancelaciones multitouch.',
+    content: `package com.anghello.overlaygamepad
+
+import android.content.Context
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.util.AttributeSet
+import android.view.MotionEvent
+import android.view.View
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.hypot
+import kotlin.math.min
+import kotlin.math.sin
+
+class JoystickView @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null,
+    defStyleAttr: Int = 0
+) : View(context, attrs, defStyleAttr) {
+
+    private var centerX = 0f
+    private var centerY = 0f
+    private var baseRadius = 0f
+    private var thumbRadius = 0f
+    private var thumbX = 0f
+    private var thumbY = 0f
+
+    // Identificador del dedo que actualmente controla el joystick (Multitouch estricto)
+    private var activePointerId = MotionEvent.INVALID_POINTER_ID
+
+    var onJoystickMove: ((x: Float, y: Float) -> Unit)? = null
+
+    private val basePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#4D000000") // 30% negro translúcido
+        style = Paint.Style.FILL
+    }
+    private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#80FFFFFF") // 50% blanco translúcido
+        style = Paint.Style.STROKE
+        strokeWidth = 3f
+    }
+    private val thumbPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#B3333333") // 70% translúcido
+        style = Paint.Style.FILL
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        centerX = w / 2f
+        centerY = h / 2f
+        baseRadius = min(w, h) / 2f - 4f
+        thumbRadius = baseRadius * 0.45f
+        thumbX = centerX
+        thumbY = centerY
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        canvas.drawCircle(centerX, centerY, baseRadius, basePaint)
+        canvas.drawCircle(centerX, centerY, baseRadius, borderPaint)
+        canvas.drawCircle(thumbX, thumbY, thumbRadius, thumbPaint)
+    }
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                activePointerId = event.getPointerId(0)
+                updateThumb(event.x, event.y)
+                parent?.requestDisallowInterceptTouchEvent(true)
+                return true
+            }
+            MotionEvent.ACTION_POINTER_DOWN -> {
+                if (activePointerId == MotionEvent.INVALID_POINTER_ID) {
+                    val index = event.actionIndex
+                    activePointerId = event.getPointerId(index)
+                    updateThumb(event.getX(index), event.getY(index))
+                    return true
+                }
+            }
+            MotionEvent.ACTION_MOVE -> {
+                if (activePointerId != MotionEvent.INVALID_POINTER_ID) {
+                    val pointerIndex = event.findPointerIndex(activePointerId)
+                    if (pointerIndex != -1) {
+                        updateThumb(event.getX(pointerIndex), event.getY(pointerIndex))
+                    }
+                }
+                return true
+            }
+            MotionEvent.ACTION_POINTER_UP -> {
+                val index = event.actionIndex
+                if (event.getPointerId(index) == activePointerId) {
+                    activePointerId = MotionEvent.INVALID_POINTER_ID
+                    resetThumb()
+                }
+                return true
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                activePointerId = MotionEvent.INVALID_POINTER_ID
+                resetThumb()
+                return true
+            }
+        }
+        return super.onTouchEvent(event)
+    }
+
+    private fun updateThumb(touchX: Float, touchY: Float) {
+        val dx = touchX - centerX
+        val dy = touchY - centerY
+        val distance = hypot(dx, dy)
+        val maxDist = baseRadius - (thumbRadius * 0.4f)
+
+        if (distance <= maxDist) {
+            thumbX = touchX
+            thumbY = touchY
+        } else {
+            val angle = atan2(dy, dx)
+            thumbX = centerX + cos(angle) * maxDist
+            thumbY = centerY + sin(angle) * maxDist
+        }
+
+        val normX = ((thumbX - centerX) / maxDist).coerceIn(-1f, 1f)
+        val normY = ((thumbY - centerY) / maxDist).coerceIn(-1f, 1f)
+        onJoystickMove?.invoke(normX, normY)
+        invalidate()
+    }
+
+    private fun resetThumb() {
+        thumbX = centerX
+        thumbY = centerY
+        onJoystickMove?.invoke(0f, 0f)
+        invalidate()
+    }
+}`,
+  },
+  {
     name: 'layout_overlay_gamepad.xml',
     path: 'app/src/main/res/layout/layout_overlay_gamepad.xml',
     language: 'xml',
     category: 'layout',
-    description: 'Diseño flotante semitransparente con D-Pad y botones A, B, X, Y con asa de arrastre.',
+    description: 'Diseño 100% transparente a pantalla completa, distribución asimétrica Xbox y escalado sin colisión.',
     content: `<?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/rootOverlayContainer"
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
-    android:background="#D916181D"
-    android:orientation="vertical"
-    android:padding="10dp">
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/transparent"
+    android:splitMotionEvents="true">
 
-    <!-- Barra de control superior: Asa de arrastre y cerrar -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="28dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
-
-        <ImageView
-            android:id="@+id/ivDragHandle"
-            android:layout_width="20dp"
-            android:layout_height="20dp"
-            android:src="@android:drawable/ic_menu_sort_by_size"
-            android:tint="#858D98" />
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
-            android:layout_weight="1"
-            android:text="MANDO PARSEC"
-            android:textColor="#C7CCD4"
-            android:textSize="10sp"
-            android:textStyle="bold" />
-
-        <ImageButton
-            android:id="@+id/btnCloseOverlay"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:background="?android:selectableItemBackground"
-            android:src="@android:drawable/ic_menu_close_clear_cancel"
-            android:tint="#F87171" />
-    </LinearLayout>
-
-    <!-- Contenedor del Mando: Cruceta a la izquierda y ABXY a la derecha -->
+    <!-- Barra de Control Flotante Superior: Escala y Visibilidad -->
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:gravity="center"
-        android:orientation="horizontal">
+        android:layout_gravity="top|end"
+        android:layout_margin="10dp"
+        android:orientation="horizontal"
+        android:splitMotionEvents="true">
 
-        <!-- Cruceta Direccional (D-Pad) -->
-        <RelativeLayout
-            android:layout_width="120dp"
-            android:layout_height="120dp"
-            android:layout_marginEnd="20dp">
+        <Button
+            android:id="@+id/btnScale"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:backgroundTint="#80000000"
+            android:text="TAMAÑO: M"
+            android:textColor="#E4E7EB"
+            android:textSize="9sp" />
 
-            <Button
-                android:id="@+id/btnDpadUp"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:layout_alignParentTop="true"
-                android:layout_centerHorizontal="true"
-                android:backgroundTint="#20242D"
-                android:text="▲"
-                android:textColor="#A0A8B4" />
-
-            <Button
-                android:id="@+id/btnDpadLeft"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:layout_alignParentStart="true"
-                android:layout_centerVertical="true"
-                android:backgroundTint="#20242D"
-                android:text="◀"
-                android:textColor="#A0A8B4" />
-
-            <View
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:layout_centerInParent="true"
-                android:background="#16181D" />
-
-            <Button
-                android:id="@+id/btnDpadRight"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:layout_alignParentEnd="true"
-                android:layout_centerVertical="true"
-                android:backgroundTint="#20242D"
-                android:text="▶"
-                android:textColor="#A0A8B4" />
-
-            <Button
-                android:id="@+id/btnDpadDown"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:layout_alignParentBottom="true"
-                android:layout_centerHorizontal="true"
-                android:backgroundTint="#20242D"
-                android:text="▼"
-                android:textColor="#A0A8B4" />
-        </RelativeLayout>
-
-        <!-- Botones de Acción (A, B, X, Y) -->
-        <RelativeLayout
-            android:layout_width="120dp"
-            android:layout_height="120dp">
-
-            <Button
-                android:id="@+id/btnActionY"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:layout_alignParentTop="true"
-                android:layout_centerHorizontal="true"
-                android:backgroundTint="#242831"
-                android:text="Y"
-                android:textColor="#FBBF24"
-                android:textStyle="bold" />
-
-            <Button
-                android:id="@+id/btnActionX"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:layout_alignParentStart="true"
-                android:layout_centerVertical="true"
-                android:backgroundTint="#242831"
-                android:text="X"
-                android:textColor="#60A5FA"
-                android:textStyle="bold" />
-
-            <Button
-                android:id="@+id/btnActionB"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:layout_alignParentEnd="true"
-                android:layout_centerVertical="true"
-                android:backgroundTint="#242831"
-                android:text="B"
-                android:textColor="#F87171"
-                android:textStyle="bold" />
-
-            <Button
-                android:id="@+id/btnActionA"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:layout_alignParentBottom="true"
-                android:layout_centerHorizontal="true"
-                android:backgroundTint="#242831"
-                android:text="A"
-                android:textColor="#34D399"
-                android:textStyle="bold" />
-        </RelativeLayout>
-
+        <ImageButton
+            android:id="@+id/btnToggleVisibility"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_marginStart="6dp"
+            android:background="#80000000"
+            android:src="@android:drawable/ic_menu_view"
+            android:tint="#FFFFFF" />
     </LinearLayout>
-</LinearLayout>`,
+
+    <!-- CONTENEDOR DE CONTROLES: TRANSPARENCIA PURA (SIN CAJA GRIS) -->
+    <RelativeLayout
+        android:id="@+id/controlsContainer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@android:color/transparent"
+        android:splitMotionEvents="true">
+
+        <!-- GATILLOS Y BUMPERS SUPERIORES IZQUIERDOS (LT / LB) -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentTop="true"
+            android:layout_alignParentStart="true"
+            android:layout_margin="10dp"
+            android:orientation="horizontal"
+            android:splitMotionEvents="true">
+
+            <Button
+                android:id="@+id/btnTriggerLT"
+                android:layout_width="54dp"
+                android:layout_height="34dp"
+                android:backgroundTint="#80000000"
+                android:text="LT"
+                android:textColor="#FFFFFF"
+                android:textSize="10sp" />
+
+            <Button
+                android:id="@+id/btnBumperLB"
+                android:layout_width="54dp"
+                android:layout_height="34dp"
+                android:layout_marginStart="6dp"
+                android:backgroundTint="#80000000"
+                android:text="LB"
+                android:textColor="#FFFFFF"
+                android:textSize="10sp" />
+        </LinearLayout>
+
+        <!-- BUMPERS Y GATILLOS SUPERIORES DERECHOS (RB / RT) -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentTop="true"
+            android:layout_alignParentEnd="true"
+            android:layout_marginEnd="90dp"
+            android:layout_marginTop="10dp"
+            android:orientation="horizontal"
+            android:splitMotionEvents="true">
+
+            <Button
+                android:id="@+id/btnBumperRB"
+                android:layout_width="54dp"
+                android:layout_height="34dp"
+                android:backgroundTint="#80000000"
+                android:text="RB"
+                android:textColor="#FFFFFF"
+                android:textSize="10sp" />
+
+            <Button
+                android:id="@+id/btnTriggerRT"
+                android:layout_width="54dp"
+                android:layout_height="34dp"
+                android:layout_marginStart="6dp"
+                android:backgroundTint="#80000000"
+                android:text="RT"
+                android:textColor="#FFFFFF"
+                android:textSize="10sp" />
+        </LinearLayout>
+
+        <!-- CLUSTER IZQUIERDO XBOX: STICK IZQUIERDO ARRIBA Y D-PAD ABAJO -->
+        <LinearLayout
+            android:id="@+id/clusterLeft"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentBottom="true"
+            android:layout_alignParentStart="true"
+            android:layout_margin="12dp"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:splitMotionEvents="true">
+
+            <!-- Joystick Izquierdo (LS) -->
+            <com.anghello.overlaygamepad.JoystickView
+                android:id="@+id/joystickLeft"
+                android:layout_width="92dp"
+                android:layout_height="92dp" />
+
+            <!-- Cruceta D-Pad -->
+            <RelativeLayout
+                android:layout_width="88dp"
+                android:layout_height="88dp"
+                android:layout_marginTop="8dp"
+                android:splitMotionEvents="true">
+
+                <Button
+                    android:id="@+id/btnDpadUp"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_alignParentTop="true"
+                    android:layout_centerHorizontal="true"
+                    android:backgroundTint="#80000000"
+                    android:text="▲"
+                    android:textColor="#FFFFFF"
+                    android:textSize="9sp" />
+
+                <Button
+                    android:id="@+id/btnDpadLeft"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_alignParentStart="true"
+                    android:layout_centerVertical="true"
+                    android:backgroundTint="#80000000"
+                    android:text="◀"
+                    android:textColor="#FFFFFF"
+                    android:textSize="9sp" />
+
+                <Button
+                    android:id="@+id/btnDpadRight"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_alignParentEnd="true"
+                    android:layout_centerVertical="true"
+                    android:backgroundTint="#80000000"
+                    android:text="▶"
+                    android:textColor="#FFFFFF"
+                    android:textSize="9sp" />
+
+                <Button
+                    android:id="@+id/btnDpadDown"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_alignParentBottom="true"
+                    android:layout_centerHorizontal="true"
+                    android:backgroundTint="#80000000"
+                    android:text="▼"
+                    android:textColor="#FFFFFF"
+                    android:textSize="9sp" />
+            </RelativeLayout>
+        </LinearLayout>
+
+        <!-- CLUSTER DERECHO XBOX: BOTONES XYAB ARRIBA Y STICK DERECHO ABAJO -->
+        <LinearLayout
+            android:id="@+id/clusterRight"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentBottom="true"
+            android:layout_alignParentEnd="true"
+            android:layout_margin="12dp"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:splitMotionEvents="true">
+
+            <!-- Botones de Acción XYAB -->
+            <RelativeLayout
+                android:layout_width="92dp"
+                android:layout_height="92dp"
+                android:splitMotionEvents="true">
+
+                <!-- Y: Amarillo -->
+                <Button
+                    android:id="@+id/btnActionY"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:layout_alignParentTop="true"
+                    android:layout_centerHorizontal="true"
+                    android:backgroundTint="#80000000"
+                    android:text="Y"
+                    android:textColor="#FBBF24"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <!-- X: Azul -->
+                <Button
+                    android:id="@+id/btnActionX"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:layout_alignParentStart="true"
+                    android:layout_centerVertical="true"
+                    android:backgroundTint="#80000000"
+                    android:text="X"
+                    android:textColor="#60A5FA"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <!-- B: Rojo -->
+                <Button
+                    android:id="@+id/btnActionB"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:layout_alignParentEnd="true"
+                    android:layout_centerVertical="true"
+                    android:backgroundTint="#80000000"
+                    android:text="B"
+                    android:textColor="#F87171"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <!-- A: Verde -->
+                <Button
+                    android:id="@+id/btnActionA"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:layout_alignParentBottom="true"
+                    android:layout_centerHorizontal="true"
+                    android:backgroundTint="#80000000"
+                    android:text="A"
+                    android:textColor="#34D399"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+            </RelativeLayout>
+
+            <!-- Joystick Derecho (RS) -->
+            <com.anghello.overlaygamepad.JoystickView
+                android:id="@+id/joystickRight"
+                android:layout_width="92dp"
+                android:layout_height="92dp"
+                android:layout_marginTop="8dp" />
+        </LinearLayout>
+
+    </RelativeLayout>
+</FrameLayout>`,
   },
   {
     name: 'activity_main.xml',
@@ -992,5 +1291,73 @@ class OverlayService : Service() {
     content: `org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
 android.useAndroidX=true
 android.enableJetifier=true`,
+  },
+  {
+    name: 'gradlew',
+    path: 'gradlew',
+    language: 'groovy',
+    category: 'gradle',
+    description: 'Script ejecutable POSIX para compilar con ./gradlew en Linux / Android / AIDE.',
+    content: `#!/bin/sh
+##############################################################################
+##
+##  Gradle start up script for POSIX generated for AIDE / Android / Linux
+##
+##############################################################################
+
+PRG="$0"
+while [ -h "$PRG" ] ; do
+    ls=\`ls -ld "$PRG"\`
+    link=\`expr "$ls" : '.*-> \\(.*\\)$'\`
+    if expr "$link" : '/.*' > /dev/null; then
+        PRG="$link"
+    else
+        PRG=\`dirname "$PRG"\`"/$link"
+    fi
+done
+SAVED="\`pwd\`"
+cd "\`dirname \\"$PRG\\"\`/" >/dev/null
+APP_HOME="\`pwd -P\`"
+cd "$SAVED" >/dev/null
+
+APP_NAME="Gradle"
+APP_BASE_NAME=\`basename "$0"\`
+
+CLASSPATH="$APP_HOME/gradle/wrapper/gradle-wrapper.jar"
+
+if [ -n "$JAVA_HOME" ] ; then
+    if [ -x "$JAVA_HOME/jre/sh/java" ] ; then
+        JAVACMD="$JAVA_HOME/jre/sh/java"
+    else
+        JAVACMD="$JAVA_HOME/bin/java"
+    fi
+else
+    JAVACMD="java"
+fi
+
+if [ ! -f "$CLASSPATH" ]; then
+    if command -v gradle >/dev/null 2>&1; then
+        exec gradle "$@"
+    fi
+fi
+
+exec "$JAVACMD" \\
+    "-Dorg.gradle.appname=$APP_BASE_NAME" \\
+    -classpath "$CLASSPATH" \\
+    org.gradle.wrapper.GradleWrapperMain \\
+    "$@"`,
+  },
+  {
+    name: 'gradle-wrapper.properties',
+    path: 'gradle/wrapper/gradle-wrapper.properties',
+    language: 'groovy',
+    category: 'gradle',
+    description: 'Configuración de descarga y versión de Gradle Wrapper (v8.2).',
+    content: `distributionBase=GRADLE_USER_HOME
+distributionPath=wrapper/dists
+distributionUrl=https\\://services.gradle.org/distributions/gradle-8.2-bin.zip
+networkTimeout=10000
+zipStoreBase=GRADLE_USER_HOME
+zipStorePath=wrapper/dists`,
   },
 ];
