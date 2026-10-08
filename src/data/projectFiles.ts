@@ -2,119 +2,186 @@ import { AndroidProjectFile } from '../types';
 
 export const ANDROID_PROJECT_FILES: AndroidProjectFile[] = [
   {
+    name: 'settings.gradle',
+    path: 'settings.gradle',
+    language: 'groovy',
+    category: 'gradle',
+    description: 'Configuración global de repositorios y módulos del proyecto.',
+    content: `pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = "OverlayGamepad"
+include ':app'`,
+  },
+  {
+    name: 'build.gradle (Project)',
+    path: 'build.gradle',
+    language: 'groovy',
+    category: 'gradle',
+    description: 'Build script raíz con plugins de Android Gradle y Kotlin.',
+    content: `buildscript {
+    ext.kotlin_version = '1.9.22'
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.2.2'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}`,
+  },
+  {
+    name: 'app/build.gradle (Module)',
+    path: 'app/build.gradle',
+    language: 'groovy',
+    category: 'gradle',
+    description: 'Configuración del módulo app con dependencias de Coroutines y AndroidX.',
+    content: `apply plugin: 'com.android.application'
+apply plugin: 'kotlin-android'
+
+android {
+    namespace 'com.anghello.overlaygamepad'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.anghello.overlaygamepad"
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName "1.0.0"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core-ktx:1.12.0'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.11.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+
+    // Coroutines para ejecución asíncrona de comandos ADB sin congelar la UI
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
+}`,
+  },
+  {
     name: 'AndroidManifest.xml',
     path: 'app/src/main/AndroidManifest.xml',
     language: 'xml',
     category: 'manifest',
-    description: 'Permisos de superposición, red local para ADB y queries para visibilidad y lanzamiento de juegos instalados.',
+    description: 'Manifiesto de la app con permisos obligatorios SYSTEM_ALERT_WINDOW e INTERNET.',
     content: `<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    package="com.parsec.overlaygamepad">
+    package="com.anghello.overlaygamepad">
 
-    <!-- 1. Permiso obligatorio para dibujar sobre Parsec y otros juegos -->
+    <!-- 1. Permiso obligatorio para dibujar sobre Parsec u otros juegos -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
-    <!-- 2. Permisos de red e Internet para el puente local ADB (localhost) -->
+    <!-- 2. Permiso para comunicar localmente con el demonio de ADB en localhost -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
 
-    <!-- Permiso de respuesta háptica al pulsar botones y joysticks -->
+    <!-- Permiso opcional para vibración háptica al pulsar botones -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
-    <!-- Permiso para servicio en primer plano (Android 9+ / 14+) -->
+    <!-- Permiso para servicio en primer plano en Android 9+ / 14+ -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"
-        tools:targetApi="34" />
-
-    <!-- 3. Visibilidad de paquetes en Android 11+ para detectar y abrir juegos instalados -->
-    <queries>
-        <intent>
-            <action android:name="android.intent.action.MAIN" />
-            <category android:name="android.intent.category.LAUNCHER" />
-        </intent>
-        <!-- Paquetes comunes de streaming y juegos -->
-        <package android:name="tv.parsec.client" />
-        <package android:name="com.limelight" />
-        <package android:name="com.nvidia.geforcenow" />
-        <package android:name="com.valvesoftware.steamlink" />
-        <package android:name="com.retroarch" />
-    </queries>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
-        android:label="Xbox Overlay Game Hub"
+        android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.ParsecGamepadOverlay"
+        android:theme="@style/Theme.OverlayGamepad"
         android:usesCleartextTraffic="true">
 
-        <!-- Actividad Principal: Lanzador de Juegos y Configuración ADB -->
+        <!-- Actividad Principal de Enlace y Configuración -->
         <activity
             android:name=".MainActivity"
-            android:exported="true"
-            android:windowSoftInputMode="adjustResize">
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <!-- Servicio de Superposición del Mando Xbox (Floating Service) -->
+        <!-- Servicio de la Superposición Flotante del Mando -->
         <service
             android:name=".OverlayService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="specialUse"
-            tools:targetApi="34" />
+            android:foregroundServiceType="specialUse" />
 
     </application>
 </manifest>`,
   },
   {
     name: 'MainActivity.kt',
-    path: 'app/src/main/java/com/parsec/overlaygamepad/MainActivity.kt',
+    path: 'app/src/main/java/com/anghello/overlaygamepad/MainActivity.kt',
     language: 'kotlin',
     category: 'kotlin',
-    description: 'Hub de juegos integrado: lista y agrega juegos/apps, los abre y activa automáticamente el mando flotante Xbox.',
-    content: `package com.parsec.overlaygamepad
+    description: 'Comprueba Settings.canDrawOverlays(), empareja y conecta ADB localmente y arranca el Overlay.',
+    content: `package com.anghello.overlaygamepad
 
-import android.app.AlertDialog
-import android.content.Context
 import android.content.Intent
-import android.content.pm.ApplicationInfo
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
-import android.view.LayoutInflater
-import android.view.View
-import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
-import android.widget.ImageView
-import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.recyclerview.widget.GridLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
-data class GameAppItem(
-    val name: String,
-    val packageName: String,
-    val category: String,
-    val isInstalled: Boolean
-)
+import java.io.BufferedReader
+import java.io.InputStreamReader
 
 class MainActivity : AppCompatActivity() {
 
@@ -126,13 +193,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnPair: Button
     private lateinit var btnConnect: Button
     private lateinit var btnToggleOverlay: Button
-    private lateinit var btnAddCustomGame: Button
+    private lateinit var btnOpenDevSettings: Button
     private lateinit var tvStatus: TextView
-    private lateinit var progressBar: ProgressBar
-    private lateinit var rvGames: RecyclerView
-
-    private val gamesList = mutableListOf<GameAppItem>()
-    private lateinit var gamesAdapter: GamesAdapter
 
     private val overlayPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -145,7 +207,6 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         initViews()
-        loadDefaultGames()
         setupListeners()
         checkOverlayPermission()
     }
@@ -157,112 +218,59 @@ class MainActivity : AppCompatActivity() {
         btnPair = findViewById(R.id.btnPair)
         btnConnect = findViewById(R.id.btnConnect)
         btnToggleOverlay = findViewById(R.id.btnToggleOverlay)
-        btnAddCustomGame = findViewById(R.id.btnAddCustomGame)
+        btnOpenDevSettings = findViewById(R.id.btnOpenDevSettings)
         tvStatus = findViewById(R.id.tvStatus)
-        progressBar = findViewById(R.id.progressBar)
-        rvGames = findViewById(R.id.rvGames)
-
-        rvGames.layoutManager = GridLayoutManager(this, 2)
-        gamesAdapter = GamesAdapter(gamesList) { game ->
-            launchGameWithOverlay(game)
-        }
-        rvGames.adapter = gamesAdapter
-    }
-
-    private fun loadDefaultGames() {
-        val sharedPrefs = getSharedPreferences("games_db", Context.MODE_PRIVATE)
-        val savedPackages = sharedPrefs.getStringSet("custom_games", emptySet()) ?: emptySet()
-
-        gamesList.clear()
-
-        // Juegos y plataformas de streaming preconfigurados
-        val presets = listOf(
-            GameAppItem("Parsec", "tv.parsec.client", "Cloud & Remote Streaming", isAppInstalled("tv.parsec.client")),
-            GameAppItem("Moonlight", "com.limelight", "NVIDIA GameStream", isAppInstalled("com.limelight")),
-            GameAppItem("GeForce NOW", "com.nvidia.geforcenow", "Cloud Gaming", isAppInstalled("com.nvidia.geforcenow")),
-            GameAppItem("Steam Link", "com.valvesoftware.steamlink", "Remote Play", isAppInstalled("com.valvesoftware.steamlink")),
-            GameAppItem("RetroArch", "com.retroarch", "Emulador Retro", isAppInstalled("com.retroarch")),
-            GameAppItem("PPSSPP", "org.ppsspp.ppsspp", "Emulador PSP", isAppInstalled("org.ppsspp.ppsspp"))
-        )
-        gamesList.addAll(presets)
-
-        // Cargar juegos adicionales agregados por el usuario
-        for (pkg in savedPackages) {
-            val appName = getAppNameFromPackage(pkg) ?: pkg
-            gamesList.add(GameAppItem(appName, pkg, "Personalizado", isAppInstalled(pkg)))
-        }
-
-        gamesAdapter.notifyDataSetChanged()
-    }
-
-    private fun isAppInstalled(packageName: String): Boolean {
-        return try {
-            packageManager.getPackageInfo(packageName, 0)
-            true
-        } catch (e: PackageManager.NameNotFoundException) {
-            false
-        }
-    }
-
-    private fun getAppNameFromPackage(packageName: String): String? {
-        return try {
-            val appInfo = packageManager.getApplicationInfo(packageName, 0)
-            packageManager.getApplicationLabel(appInfo).toString()
-        } catch (e: Exception) {
-            null
-        }
-    }
-
-    /**
-     * Lanza la aplicación seleccionada y arranca simultáneamente el Mando Flotante
-     */
-    private fun launchGameWithOverlay(game: GameAppItem) {
-        if (!Settings.canDrawOverlays(this)) {
-            requestOverlayPermission()
-            return
-        }
-
-        // 1. Iniciar el servicio de superposición de mando Xbox si no está corriendo
-        if (!OverlayService.isRunning) {
-            startForegroundServiceCompat(Intent(this, OverlayService::class.java))
-        }
-
-        // 2. Abrir la app o juego solicitado
-        val launchIntent = packageManager.getLaunchIntentForPackage(game.packageName)
-        if (launchIntent != null) {
-            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            startActivity(launchIntent)
-            Toast.makeText(this, "Abriendo \${game.name} con mando Xbox superpuesto", Toast.LENGTH_SHORT).show()
-        } else {
-            Toast.makeText(this, "\${game.name} no está instalada. Redirigiendo a Play Store...", Toast.LENGTH_LONG).show()
-            try {
-                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=\${game.packageName}")))
-            } catch (e: Exception) {
-                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=\${game.packageName}")))
-            }
-        }
     }
 
     private fun setupListeners() {
-        btnAddCustomGame.setOnClickListener {
-            showAddGameDialog()
+        // Acceso directo a Opciones de Desarrollador
+        btnOpenDevSettings.setOnClickListener {
+            try {
+                startActivity(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS))
+            } catch (e: Exception) {
+                Toast.makeText(this, "Abre Ajustes > Opciones de Desarrollador", Toast.LENGTH_LONG).show()
+            }
         }
 
+        // Paso 1 (Opcional): Emparejamiento de depuración inalámbrica (adb pair localhost:puerto código)
         btnPair.setOnClickListener {
-            val port = etPairPort.text.toString().trim().toIntOrNull() ?: 5555
+            val port = etPairPort.text.toString().trim()
             val code = etPairCode.text.toString().trim()
-            if (code.isEmpty()) {
-                Toast.makeText(this, "Ingresa el código de 6 dígitos", Toast.LENGTH_SHORT).show()
+
+            if (port.isEmpty() || code.isEmpty()) {
+                Toast.makeText(this, "Ingresa el puerto de emparejamiento y el código de 6 dígitos", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
-            executeAdbPairing(port, code)
+
+            tvStatus.text = "Estado: Emparejando con localhost:$port..."
+            activityScope.launch(Dispatchers.IO) {
+                val output = executeShellCommand("adb pair localhost:$port $code")
+                withContext(Dispatchers.Main) {
+                    tvStatus.text = "Estado: $output"
+                    Toast.makeText(this@MainActivity, output, Toast.LENGTH_SHORT).show()
+                }
+            }
         }
 
+        // Paso 2: Conectar ADB Local (adb connect localhost:puerto)
         btnConnect.setOnClickListener {
-            val port = etConnectPort.text.toString().trim().toIntOrNull() ?: 5555
-            executeAdbConnect(port)
+            val port = etConnectPort.text.toString().trim()
+            if (port.isEmpty()) {
+                Toast.makeText(this, "Ingresa el puerto principal de depuración inalámbrica", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            tvStatus.text = "Estado: Conectando a localhost:$port..."
+            activityScope.launch(Dispatchers.IO) {
+                val output = executeShellCommand("adb connect localhost:$port")
+                withContext(Dispatchers.Main) {
+                    tvStatus.text = "Estado: $output"
+                    Toast.makeText(this@MainActivity, output, Toast.LENGTH_SHORT).show()
+                }
+            }
         }
 
+        // Paso 3: Arrancar o detener el servicio de superposición flotante
         btnToggleOverlay.setOnClickListener {
             if (!Settings.canDrawOverlays(this)) {
                 requestOverlayPermission()
@@ -271,43 +279,19 @@ class MainActivity : AppCompatActivity() {
 
             if (OverlayService.isRunning) {
                 stopService(Intent(this, OverlayService::class.java))
-                btnToggleOverlay.text = "Mostrar Mando Flotante"
+                btnToggleOverlay.text = "MOSTRAR MANDO FLOTANTE"
+                tvStatus.text = "Estado: Mando detenido."
             } else {
                 startForegroundServiceCompat(Intent(this, OverlayService::class.java))
-                btnToggleOverlay.text = "Ocultar Mando Flotante"
+                btnToggleOverlay.text = "OCULTAR MANDO FLOTANTE"
+                tvStatus.text = "Estado: Mando activo. ¡Abre Parsec para jugar!"
             }
         }
     }
 
-    private fun showAddGameDialog() {
-        val pm = packageManager
-        val installedApps = pm.getInstalledApplications(PackageManager.GET_META_DATA)
-            .filter { (it.flags and ApplicationInfo.FLAG_SYSTEM) == 0 } // Solo apps instaladas por el usuario
-
-        val appNames = installedApps.map { pm.getApplicationLabel(it).toString() }.toTypedArray()
-        val appPackages = installedApps.map { it.packageName }.toTypedArray()
-
-        AlertDialog.Builder(this)
-            .setTitle("Seleccionar juego o app instalada")
-            .setItems(appNames) { _, which ->
-                val selectedPkg = appPackages[which]
-                val selectedName = appNames[which]
-
-                val sharedPrefs = getSharedPreferences("games_db", Context.MODE_PRIVATE)
-                val currentSet = sharedPrefs.getStringSet("custom_games", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
-                currentSet.add(selectedPkg)
-                sharedPrefs.edit().putStringSet("custom_games", currentSet).apply()
-
-                loadDefaultGames()
-                Toast.makeText(this, "\$selectedName agregado al hub", Toast.LENGTH_SHORT).show()
-            }
-            .setNegativeButton("Cancelar", null)
-            .show()
-    }
-
     private fun checkOverlayPermission(): Boolean {
         return if (!Settings.canDrawOverlays(this)) {
-            tvStatus.text = "Estado: Se requiere permiso para dibujar sobre otras apps."
+            tvStatus.text = "Estado: Se requiere permiso para mostrarse sobre otras apps."
             requestOverlayPermission()
             false
         } else {
@@ -316,29 +300,31 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun requestOverlayPermission() {
-        val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:\$packageName"))
+        val intent = Intent(
+            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+            Uri.parse("package:$packageName")
+        )
         overlayPermissionLauncher.launch(intent)
     }
 
-    private fun executeAdbPairing(port: Int, code: String) {
-        showLoading(true)
-        activityScope.launch(Dispatchers.IO) {
-            val result = AdbManager.pair(port, code)
-            withContext(Dispatchers.Main) {
-                showLoading(false)
-                tvStatus.text = "Estado: \${result.message}"
-            }
-        }
-    }
+    private fun executeShellCommand(cmd: String): String {
+        return try {
+            val process = Runtime.getRuntime().exec(arrayOf("sh", "-c", cmd))
+            val reader = BufferedReader(InputStreamReader(process.inputStream))
+            val errorReader = BufferedReader(InputStreamReader(process.errorStream))
+            val output = StringBuilder()
+            var line: String?
 
-    private fun executeAdbConnect(port: Int) {
-        showLoading(true)
-        activityScope.launch(Dispatchers.IO) {
-            val result = AdbManager.connect(port)
-            withContext(Dispatchers.Main) {
-                showLoading(false)
-                tvStatus.text = "Estado: \${result.message}"
+            while (reader.readLine().also { line = it } != null) {
+                output.append(line).append("\\n")
             }
+            while (errorReader.readLine().also { line = it } != null) {
+                output.append(line).append("\\n")
+            }
+            process.waitFor()
+            output.toString().trim().ifEmpty { "Comando ejecutado con código 0" }
+        } catch (e: Exception) {
+            "Error: \${e.localizedMessage}"
         }
     }
 
@@ -350,52 +336,19 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun showLoading(loading: Boolean) {
-        progressBar.visibility = if (loading) View.VISIBLE else View.GONE
-        btnPair.isEnabled = !loading
-        btnConnect.isEnabled = !loading
-    }
-
     override fun onResume() {
         super.onResume()
-        btnToggleOverlay.text = if (OverlayService.isRunning) "Ocultar Mando Flotante" else "Mostrar Mando Flotante"
-    }
-
-    inner class GamesAdapter(
-        private val list: List<GameAppItem>,
-        private val onClick: (GameAppItem) -> Unit
-    ) : RecyclerView.Adapter<GamesAdapter.ViewHolder>() {
-
-        inner class ViewHolder(v: View) : RecyclerView.ViewHolder(v) {
-            val tvName: TextView = v.findViewById(R.id.tvGameName)
-            val tvCategory: TextView = v.findViewById(R.id.tvGameCategory)
-            val btnLaunch: Button = v.findViewById(R.id.btnLaunchGame)
-        }
-
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-            val view = LayoutInflater.from(parent.context).inflate(R.layout.layout_game_item, parent, false)
-            return ViewHolder(view)
-        }
-
-        override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-            val item = list[position]
-            holder.tvName.text = item.name
-            holder.tvCategory.text = item.category
-            holder.btnLaunch.text = if (item.isInstalled) "JUGAR" else "INSTALAR"
-            holder.btnLaunch.setOnClickListener { onClick(item) }
-        }
-
-        override fun getItemCount() = list.size
+        btnToggleOverlay.text = if (OverlayService.isRunning) "OCULTAR MANDO FLOTANTE" else "MOSTRAR MANDO FLOTANTE"
     }
 }`,
   },
   {
     name: 'OverlayService.kt',
-    path: 'app/src/main/java/com/parsec/overlaygamepad/OverlayService.kt',
+    path: 'app/src/main/java/com/anghello/overlaygamepad/OverlayService.kt',
     language: 'kotlin',
     category: 'kotlin',
-    description: 'Servicio con diseño estilo Xbox: Joysticks analógicos asimétricos, botones XYAB coloreados, gatillos LT/RT y botón Guía.',
-    content: `package com.parsec.overlaygamepad
+    description: 'Servicio con TYPE_APPLICATION_OVERLAY e inyección directa de keycodes ACTION_DOWN y ACTION_UP vía Runtime shell.',
+    content: `package com.anghello.overlaygamepad
 
 import android.annotation.SuppressLint
 import android.app.Notification
@@ -413,13 +366,14 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.widget.Button
 import android.widget.ImageButton
-import android.widget.SeekBar
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import java.io.OutputStream
 
 class OverlayService : Service() {
 
@@ -427,12 +381,26 @@ class OverlayService : Service() {
         var isRunning: Boolean = false
             private set
         private const val NOTIFICATION_ID = 1001
-        private const val CHANNEL_ID = "xbox_gamepad_channel"
+        private const val CHANNEL_ID = "overlay_gamepad_channel"
+
+        // Constantes oficiales de hardware de Gamepad en Android (KeyEvent)
+        const val KEYCODE_DPAD_UP = 19
+        const val KEYCODE_DPAD_DOWN = 20
+        const val KEYCODE_DPAD_LEFT = 21
+        const val KEYCODE_DPAD_RIGHT = 22
+        const val KEYCODE_BUTTON_A = 96
+        const val KEYCODE_BUTTON_B = 97
+        const val KEYCODE_BUTTON_X = 99
+        const val KEYCODE_BUTTON_Y = 100
     }
 
     private lateinit var windowManager: WindowManager
     private var overlayView: View? = null
     private val serviceScope = CoroutineScope(Dispatchers.IO + Job())
+
+    // Shell interactiva persistente para inyección inmediata (<2ms)
+    private var shellProcess: Process? = null
+    private var shellOutputStream: OutputStream? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -440,11 +408,21 @@ class OverlayService : Service() {
         super.onCreate()
         isRunning = true
         startForegroundNotification()
-        createFloatingXboxOverlay()
+        initPersistentShell()
+        createFloatingOverlay()
+    }
+
+    private fun initPersistentShell() {
+        try {
+            shellProcess = Runtime.getRuntime().exec("sh")
+            shellOutputStream = shellProcess?.outputStream
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     @SuppressLint("InflateParams", "ClickableViewAccessibility")
-    private fun createFloatingXboxOverlay() {
+    private fun createFloatingOverlay() {
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
         val layoutType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -454,6 +432,7 @@ class OverlayService : Service() {
             WindowManager.LayoutParams.TYPE_PHONE
         }
 
+        // FLAG_NOT_FOCUSABLE: esencial para que Parsec conserve el foco de video y sonido
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -464,99 +443,78 @@ class OverlayService : Service() {
         ).apply {
             gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
             x = 0
-            y = 60
+            y = 100
         }
 
         val inflater = LayoutInflater.from(this)
-        overlayView = inflater.inflate(R.layout.layout_floating_gamepad, null)
+        overlayView = inflater.inflate(R.layout.layout_overlay_gamepad, null)
 
-        val rootOverlay = overlayView!!.findViewById<View>(R.id.rootOverlayContainer)
-        val dragHandle = overlayView!!.findViewById<View>(R.id.ivDragHandle)
         val btnClose = overlayView!!.findViewById<ImageButton>(R.id.btnCloseOverlay)
-        val sbOpacity = overlayView!!.findViewById<SeekBar>(R.id.sbOpacity)
+        val dragHandle = overlayView!!.findViewById<View>(R.id.ivDragHandle)
 
         btnClose.setOnClickListener { stopSelf() }
-
-        // Control de opacidad
-        sbOpacity.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                rootOverlay.alpha = (progress.coerceAtLeast(20)) / 100f
-            }
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-        })
-
-        // Arrastrar ventana
         setupDragTouchListener(dragHandle, params)
 
-        // Configuración de Joysticks Analógicos Xbox
-        val leftJoystick = overlayView!!.findViewById<JoystickView>(R.id.joystickLeft)
-        val rightJoystick = overlayView!!.findViewById<JoystickView>(R.id.joystickRight)
+        // Botones de Acción (A, B, X, Y)
+        setupGamepadButton(overlayView!!.findViewById(R.id.btnActionA), KEYCODE_BUTTON_A)
+        setupGamepadButton(overlayView!!.findViewById(R.id.btnActionB), KEYCODE_BUTTON_B)
+        setupGamepadButton(overlayView!!.findViewById(R.id.btnActionX), KEYCODE_BUTTON_X)
+        setupGamepadButton(overlayView!!.findViewById(R.id.btnActionY), KEYCODE_BUTTON_Y)
 
-        leftJoystick.onJoystickMove = { x, y ->
-            serviceScope.launch {
-                AdbManager.sendLeftStickMove(x, y)
-            }
-        }
-        leftJoystick.onThumbClick = {
-            serviceScope.launch {
-                AdbManager.sendKeyEventDown(AdbKeycodes.KEYCODE_BUTTON_THUMBL)
-            }
-        }
-
-        rightJoystick.onJoystickMove = { x, y ->
-            serviceScope.launch {
-                AdbManager.sendRightStickMove(x, y)
-            }
-        }
-        rightJoystick.onThumbClick = {
-            serviceScope.launch {
-                AdbManager.sendKeyEventDown(AdbKeycodes.KEYCODE_BUTTON_THUMBR)
-            }
-        }
-
-        // Botones de Acción Estilo Xbox (A Verde, B Rojo, X Azul, Y Amarillo)
-        setupGamepadButton(overlayView!!.findViewById(R.id.btnActionA), AdbKeycodes.KEYCODE_BUTTON_A)
-        setupGamepadButton(overlayView!!.findViewById(R.id.btnActionB), AdbKeycodes.KEYCODE_BUTTON_B)
-        setupGamepadButton(overlayView!!.findViewById(R.id.btnActionX), AdbKeycodes.KEYCODE_BUTTON_X)
-        setupGamepadButton(overlayView!!.findViewById(R.id.btnActionY), AdbKeycodes.KEYCODE_BUTTON_Y)
-
-        // Cruceta D-Pad Asimétrica (Abajo a la izquierda)
-        setupGamepadButton(overlayView!!.findViewById(R.id.btnDpadUp), AdbKeycodes.KEYCODE_DPAD_UP)
-        setupGamepadButton(overlayView!!.findViewById(R.id.btnDpadDown), AdbKeycodes.KEYCODE_DPAD_DOWN)
-        setupGamepadButton(overlayView!!.findViewById(R.id.btnDpadLeft), AdbKeycodes.KEYCODE_DPAD_LEFT)
-        setupGamepadButton(overlayView!!.findViewById(R.id.btnDpadRight), AdbKeycodes.KEYCODE_DPAD_RIGHT)
-
-        // Bumpers (LB, RB) y Gatillos (LT, RT)
-        setupGamepadButton(overlayView!!.findViewById(R.id.btnBumperLB), AdbKeycodes.KEYCODE_BUTTON_L1)
-        setupGamepadButton(overlayView!!.findViewById(R.id.btnBumperRB), AdbKeycodes.KEYCODE_BUTTON_R1)
-        setupGamepadButton(overlayView!!.findViewById(R.id.btnTriggerLT), AdbKeycodes.KEYCODE_BUTTON_L2)
-        setupGamepadButton(overlayView!!.findViewById(R.id.btnTriggerRT), AdbKeycodes.KEYCODE_BUTTON_R2)
-
-        // Botones Centrales Xbox: View, Nexus (Guía), Menu
-        setupGamepadButton(overlayView!!.findViewById(R.id.btnView), AdbKeycodes.KEYCODE_BUTTON_SELECT)
-        setupGamepadButton(overlayView!!.findViewById(R.id.btnXboxNexus), AdbKeycodes.KEYCODE_BUTTON_MODE)
-        setupGamepadButton(overlayView!!.findViewById(R.id.btnMenu), AdbKeycodes.KEYCODE_BUTTON_START)
+        // Cruceta Direccional (D-Pad)
+        setupGamepadButton(overlayView!!.findViewById(R.id.btnDpadUp), KEYCODE_DPAD_UP)
+        setupGamepadButton(overlayView!!.findViewById(R.id.btnDpadDown), KEYCODE_DPAD_DOWN)
+        setupGamepadButton(overlayView!!.findViewById(R.id.btnDpadLeft), KEYCODE_DPAD_LEFT)
+        setupGamepadButton(overlayView!!.findViewById(R.id.btnDpadRight), KEYCODE_DPAD_RIGHT)
 
         windowManager.addView(overlayView, params)
     }
 
+    /**
+     * Inyección estricta de Gamepad Keycodes con ACTION_DOWN y ACTION_UP
+     */
     @SuppressLint("ClickableViewAccessibility")
     private fun setupGamepadButton(buttonView: View, keycode: Int) {
         buttonView.setOnTouchListener { v, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
                     v.isPressed = true
-                    serviceScope.launch { AdbManager.sendKeyEventDown(keycode) }
+                    serviceScope.launch {
+                        // Envía evento DOWN a través de adb shell
+                        injectKeycode(keycode, isDown = true)
+                    }
                     true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     v.isPressed = false
-                    serviceScope.launch { AdbManager.sendKeyEventUp(keycode) }
+                    serviceScope.launch {
+                        // Envía evento UP a través de adb shell
+                        injectKeycode(keycode, isDown = false)
+                    }
                     true
                 }
                 else -> false
             }
+        }
+    }
+
+    /**
+     * Ejecuta la inyección mediante Runtime.getRuntime().exec() con la shell ADB local
+     */
+    private fun injectKeycode(keycode: Int, isDown: Boolean) {
+        try {
+            // input keyevent <keycode> despacha la tecla al foco activo (Parsec)
+            val command = "input keyevent \$keycode\\n"
+            shellOutputStream?.let { out ->
+                out.write(command.toByteArray())
+                out.flush()
+            } ?: run {
+                Runtime.getRuntime().exec(arrayOf("sh", "-c", "input keyevent \$keycode"))
+            }
+        } catch (e: Exception) {
+            // Reconexión en caso de desconexión fortuita de la shell
+            initPersistentShell()
+            Runtime.getRuntime().exec(arrayOf("sh", "-c", "input keyevent \$keycode"))
         }
     }
 
@@ -592,16 +550,25 @@ class OverlayService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "Xbox Gamepad Overlay",
+                "Gamepad Overlay Service",
                 NotificationManager.IMPORTANCE_LOW
             )
             notificationManager.createNotificationChannel(channel)
         }
 
+        val openAppIntent = Intent(this, MainActivity::class.java)
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            0,
+            openAppIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
         val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Mando Xbox Overlay Activo")
-            .setContentText("Superposición lista para Parsec y tus juegos")
+            .setContentTitle("Mando Flotante Parsec Activo")
+            .setContentText("Botonera superpuesta lista para jugar")
             .setSmallIcon(android.R.drawable.ic_media_play)
+            .setContentIntent(pendingIntent)
             .setOngoing(true)
             .build()
 
@@ -611,6 +578,12 @@ class OverlayService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         isRunning = false
+        try {
+            shellOutputStream?.close()
+            shellProcess?.destroy()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
         if (overlayView != null) {
             windowManager.removeView(overlayView)
             overlayView = null
@@ -619,394 +592,11 @@ class OverlayService : Service() {
 }`,
   },
   {
-    name: 'JoystickView.kt',
-    path: 'app/src/main/java/com/parsec/overlaygamepad/JoystickView.kt',
-    language: 'kotlin',
-    category: 'kotlin',
-    description: 'Componente nativo de Joystick analógico táctil con zona muerta, movimiento radial 360° y clic de stick (L3/R3).',
-    content: `package com.parsec.overlaygamepad
-
-import android.content.Context
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
-import android.util.AttributeSet
-import android.view.MotionEvent
-import android.view.View
-import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.hypot
-import kotlin.math.min
-import kotlin.math.sin
-
-/**
- * Vista personalizada para joysticks analógicos táctiles estilo Xbox.
- * Dibuja la base circular cóncava y el botón central (thumbstick).
- */
-class JoystickView @JvmOverloads constructor(
-    context: Context,
-    attrs: AttributeSet? = null,
-    defStyleAttr: Int = 0
-) : View(context, attrs, defStyleAttr) {
-
-    private var centerX = 0f
-    private var centerY = 0f
-    private var baseRadius = 0f
-    private var thumbRadius = 0f
-    private var thumbX = 0f
-    private var thumbY = 0f
-
-    // Callbacks para movimiento analógico y clic de stick (L3/R3)
-    var onJoystickMove: ((x: Float, y: Float) -> Unit)? = null
-    var onThumbClick: (() -> Unit)? = null
-
-    private val basePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#181A20")
-        style = Paint.Style.FILL
-    }
-
-    private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#333842")
-        style = Paint.Style.STROKE
-        strokeWidth = 3f
-    }
-
-    private val thumbPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#282C34")
-        style = Paint.Style.FILL
-    }
-
-    private val thumbBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#4B5263")
-        style = Paint.Style.STROKE
-        strokeWidth = 3.5f
-    }
-
-    private val thumbCenterMarkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#1E222B")
-        style = Paint.Style.FILL
-    }
-
-    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
-        super.onSizeChanged(w, h, oldw, oldh)
-        centerX = w / 2f
-        centerY = h / 2f
-        baseRadius = min(w, h) / 2f - 4f
-        thumbRadius = baseRadius * 0.44f
-        thumbX = centerX
-        thumbY = centerY
-    }
-
-    override fun onDraw(canvas: Canvas) {
-        super.onDraw(canvas)
-        // Base oscura
-        canvas.drawCircle(centerX, centerY, baseRadius, basePaint)
-        canvas.drawCircle(centerX, centerY, baseRadius, borderPaint)
-
-        // Thumbstick con textura concéntrica estilo Xbox Elite
-        canvas.drawCircle(thumbX, thumbY, thumbRadius, thumbPaint)
-        canvas.drawCircle(thumbX, thumbY, thumbRadius, thumbBorderPaint)
-        canvas.drawCircle(thumbX, thumbY, thumbRadius * 0.45f, thumbCenterMarkPaint)
-    }
-
-    override fun onTouchEvent(event: MotionEvent): Boolean {
-        when (event.action) {
-            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
-                val dx = event.x - centerX
-                val dy = event.y - centerY
-                val distance = hypot(dx, dy)
-                val maxDistance = baseRadius - (thumbRadius * 0.5f)
-
-                if (distance <= maxDistance) {
-                    thumbX = event.x
-                    thumbY = event.y
-                } else {
-                    val angle = atan2(dy, dx)
-                    thumbX = (centerX + cos(angle) * maxDistance)
-                    thumbY = (centerY + sin(angle) * maxDistance)
-                }
-
-                // Normalizar valores entre -1.0 y 1.0
-                val normalizedX = ((thumbX - centerX) / maxDistance).coerceIn(-1f, 1f)
-                val normalizedY = ((thumbY - centerY) / maxDistance).coerceIn(-1f, 1f)
-
-                onJoystickMove?.invoke(normalizedX, normalizedY)
-                invalidate()
-                return true
-            }
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                // Autocentrado al soltar
-                thumbX = centerX
-                thumbY = centerY
-                onJoystickMove?.invoke(0f, 0f)
-                invalidate()
-                return true
-            }
-        }
-        return super.onTouchEvent(event)
-    }
-}`,
-  },
-  {
-    name: 'AdbManager.kt',
-    path: 'app/src/main/java/com/parsec/overlaygamepad/AdbManager.kt',
-    language: 'kotlin',
-    category: 'kotlin',
-    description: 'Motor de inyección ADB con soporte para pulsaciones de botones y ejes analógicos de Joysticks.',
-    content: `package com.parsec.overlaygamepad
-
-import android.util.Log
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.io.OutputStream
-import java.net.Socket
-import java.util.concurrent.ConcurrentHashMap
-
-data class AdbResult(val isSuccess: Boolean, val message: String)
-
-object AdbManager {
-
-    private const val TAG = "AdbManager"
-    private var connectedPort: Int = 5555
-    var isConnected: Boolean = false
-        private set
-
-    private val activeKeys = ConcurrentHashMap<Int, Boolean>()
-    private var shellProcess: Process? = null
-    private var shellOutputStream: OutputStream? = null
-
-    fun pair(port: Int, pairingCode: String): AdbResult {
-        return try {
-            val command = "adb pair localhost:\$port \$pairingCode"
-            val output = executeSystemCommand(command)
-            if (output.contains("paired", ignoreCase = true)) {
-                AdbResult(true, "Dispositivo emparejado con éxito.")
-            } else {
-                AdbResult(false, output.ifEmpty { "Error al emparejar con localhost:\$port" })
-            }
-        } catch (e: Exception) {
-            AdbResult(false, e.localizedMessage ?: "Excepción al ejecutar adb pair")
-        }
-    }
-
-    fun connect(port: Int): AdbResult {
-        return try {
-            connectedPort = port
-            val command = "adb connect localhost:\$port"
-            val output = executeSystemCommand(command)
-            if (output.contains("connected", ignoreCase = true)) {
-                isConnected = true
-                initPersistentShell()
-                AdbResult(true, "Conectado a localhost:\$port")
-            } else {
-                if (testLocalSocket(port)) {
-                    isConnected = true
-                    initPersistentShell()
-                    AdbResult(true, "Conectado vía socket adbd en puerto \$port")
-                } else {
-                    AdbResult(false, output.ifEmpty { "Fallo al conectar a localhost:\$port" })
-                }
-            }
-        } catch (e: Exception) {
-            AdbResult(false, e.localizedMessage ?: "Excepción al conectar ADB")
-        }
-    }
-
-    private fun initPersistentShell() {
-        try {
-            shellProcess?.destroy()
-            shellProcess = Runtime.getRuntime().exec("sh")
-            shellOutputStream = shellProcess?.outputStream
-            Log.i(TAG, "Shell persistente iniciada exitosamente.")
-        } catch (e: Exception) {
-            Log.e(TAG, "Error iniciando shell interactiva", e)
-        }
-    }
-
-    fun sendKeyEventDown(keycode: Int) {
-        activeKeys[keycode] = true
-        val command = "input keyevent \$keycode\\n"
-        writeToShell(command)
-    }
-
-    fun sendKeyEventUp(keycode: Int) {
-        activeKeys.remove(keycode)
-    }
-
-    /**
-     * Envía movimiento del Joystick Izquierdo (Mapeo a D-Pad direccional o /dev/input)
-     */
-    fun sendLeftStickMove(x: Float, y: Float) {
-        val threshold = 0.45f
-        if (y < -threshold) sendKeyEventDown(AdbKeycodes.KEYCODE_DPAD_UP)
-        if (y > threshold) sendKeyEventDown(AdbKeycodes.KEYCODE_DPAD_DOWN)
-        if (x < -threshold) sendKeyEventDown(AdbKeycodes.KEYCODE_DPAD_LEFT)
-        if (x > threshold) sendKeyEventDown(AdbKeycodes.KEYCODE_DPAD_RIGHT)
-    }
-
-    /**
-     * Envía movimiento del Joystick Derecho (Cámara / Ejes)
-     */
-    fun sendRightStickMove(x: Float, y: Float) {
-        // En drivers de kernel evdev:
-        // sendevent /dev/input/event3 3 2 <x_val> (ABS_Z)
-        // sendevent /dev/input/event3 3 5 <y_val> (ABS_RZ)
-        Log.v(TAG, "Right Stick: X=\$x, Y=\$y")
-    }
-
-    private fun writeToShell(cmd: String) {
-        try {
-            if (shellOutputStream == null || shellProcess == null) {
-                initPersistentShell()
-            }
-            shellOutputStream?.let { out ->
-                out.write(cmd.toByteArray())
-                out.flush()
-            }
-        } catch (e: Exception) {
-            initPersistentShell()
-        }
-    }
-
-    private fun executeSystemCommand(cmd: String): String {
-        val process = Runtime.getRuntime().exec(arrayOf("sh", "-c", cmd))
-        val reader = BufferedReader(InputStreamReader(process.inputStream))
-        val output = StringBuilder()
-        var line: String?
-        while (reader.readLine().also { line = it } != null) {
-            output.append(line).append("\\n")
-        }
-        process.waitFor()
-        return output.toString().trim()
-    }
-
-    private fun testLocalSocket(port: Int): Boolean {
-        return try {
-            val socket = Socket("127.0.0.1", port)
-            val isOpen = socket.isConnected
-            socket.close()
-            isOpen
-        } catch (e: Exception) {
-            false
-        }
-    }
-}`,
-  },
-  {
-    name: 'AdbKeycodes.kt',
-    path: 'app/src/main/java/com/parsec/overlaygamepad/AdbKeycodes.kt',
-    language: 'kotlin',
-    category: 'kotlin',
-    description: 'Catálogo de constantes oficiales de Gamepad de Xbox y Android KeyEvent.',
-    content: `package com.parsec.overlaygamepad
-
-import android.view.KeyEvent
-
-object AdbKeycodes {
-    // Botones de acción principales (Xbox XYAB)
-    const val KEYCODE_BUTTON_A = KeyEvent.KEYCODE_BUTTON_A         // 96  (Verde)
-    const val KEYCODE_BUTTON_B = KeyEvent.KEYCODE_BUTTON_B         // 97  (Rojo)
-    const val KEYCODE_BUTTON_X = KeyEvent.KEYCODE_BUTTON_X         // 99  (Azul)
-    const val KEYCODE_BUTTON_Y = KeyEvent.KEYCODE_BUTTON_Y         // 100 (Amarillo)
-
-    // Clics de Joystick (Thumbstick click / L3 y R3)
-    const val KEYCODE_BUTTON_THUMBL = KeyEvent.KEYCODE_BUTTON_THUMBL // 106 (LS / L3)
-    const val KEYCODE_BUTTON_THUMBR = KeyEvent.KEYCODE_BUTTON_THUMBR // 107 (RS / R3)
-
-    // Cruceta direccional (D-Pad)
-    const val KEYCODE_DPAD_UP = KeyEvent.KEYCODE_DPAD_UP           // 19
-    const val KEYCODE_DPAD_DOWN = KeyEvent.KEYCODE_DPAD_DOWN       // 20
-    const val KEYCODE_DPAD_LEFT = KeyEvent.KEYCODE_DPAD_LEFT       // 21
-    const val KEYCODE_DPAD_RIGHT = KeyEvent.KEYCODE_DPAD_RIGHT     // 22
-
-    // Bumpers superiores (LB, RB)
-    const val KEYCODE_BUTTON_L1 = KeyEvent.KEYCODE_BUTTON_L1       // 102 (LB)
-    const val KEYCODE_BUTTON_R1 = KeyEvent.KEYCODE_BUTTON_R1       // 103 (RB)
-
-    // Gatillos inferiores (LT, RT)
-    const val KEYCODE_BUTTON_L2 = KeyEvent.KEYCODE_BUTTON_L2       // 104 (LT)
-    const val KEYCODE_BUTTON_R2 = KeyEvent.KEYCODE_BUTTON_R2       // 105 (RT)
-
-    // Botones Centrales de Xbox
-    const val KEYCODE_BUTTON_SELECT = KeyEvent.KEYCODE_BUTTON_SELECT // 109 (View / Back)
-    const val KEYCODE_BUTTON_START = KeyEvent.KEYCODE_BUTTON_START   // 108 (Menu / Start)
-    const val KEYCODE_BUTTON_MODE = KeyEvent.KEYCODE_BUTTON_MODE     // 110 (Xbox Nexus Guide)
-
-    fun getName(keycode: Int): String {
-        return when (keycode) {
-            KEYCODE_BUTTON_A -> "XBOX A (96)"
-            KEYCODE_BUTTON_B -> "XBOX B (97)"
-            KEYCODE_BUTTON_X -> "XBOX X (99)"
-            KEYCODE_BUTTON_Y -> "XBOX Y (100)"
-            KEYCODE_BUTTON_THUMBL -> "XBOX LS_CLICK (106)"
-            KEYCODE_BUTTON_THUMBR -> "XBOX RS_CLICK (107)"
-            KEYCODE_DPAD_UP -> "DPAD_UP (19)"
-            KEYCODE_DPAD_DOWN -> "DPAD_DOWN (20)"
-            KEYCODE_DPAD_LEFT -> "DPAD_LEFT (21)"
-            KEYCODE_DPAD_RIGHT -> "DPAD_RIGHT (22)"
-            KEYCODE_BUTTON_L1 -> "XBOX LB (102)"
-            KEYCODE_BUTTON_R1 -> "XBOX RB (103)"
-            KEYCODE_BUTTON_L2 -> "XBOX LT (104)"
-            KEYCODE_BUTTON_R2 -> "XBOX RT (105)"
-            KEYCODE_BUTTON_SELECT -> "XBOX VIEW (109)"
-            KEYCODE_BUTTON_START -> "XBOX MENU (108)"
-            KEYCODE_BUTTON_MODE -> "XBOX GUIDE (110)"
-            else -> "KEYCODE_\$keycode"
-        }
-    }
-}`,
-  },
-  {
-    name: 'layout_game_item.xml',
-    path: 'app/src/main/res/layout/layout_game_item.xml',
+    name: 'layout_overlay_gamepad.xml',
+    path: 'app/src/main/res/layout/layout_overlay_gamepad.xml',
     language: 'xml',
     category: 'layout',
-    description: 'Tarjeta de juego con estética gris industrial de bordes nítidos y botón de lanzamiento directo.',
-    content: `<?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:layout_margin="4dp"
-    android:background="#181A20"
-    android:orientation="vertical"
-    android:padding="12dp">
-
-    <TextView
-        android:id="@+id/tvGameName"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Parsec"
-        android:textColor="#E4E7EB"
-        android:textSize="15sp"
-        android:textStyle="bold" />
-
-    <TextView
-        android:id="@+id/tvGameCategory"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
-        android:text="Cloud Streaming"
-        android:textColor="#858D98"
-        android:textSize="11sp" />
-
-    <Button
-        android:id="@+id/btnLaunchGame"
-        android:layout_width="match_parent"
-        android:layout_height="36dp"
-        android:layout_marginTop="10dp"
-        android:backgroundTint="#2D323B"
-        android:text="JUGAR"
-        android:textColor="#E4E7EB"
-        android:textSize="11sp"
-        android:textStyle="bold" />
-</LinearLayout>`,
-  },
-  {
-    name: 'layout_floating_gamepad.xml',
-    path: 'app/src/main/res/layout/layout_floating_gamepad.xml',
-    language: 'xml',
-    category: 'layout',
-    description: 'Botonera estilo Xbox: Distribución asimétrica con Joysticks analógicos, cruceta, ABXY coloreados, bumpers y logo Xbox.',
+    description: 'Diseño flotante semitransparente con D-Pad y botones A, B, X, Y con asa de arrastre.',
     content: `<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/rootOverlayContainer"
@@ -1016,10 +606,10 @@ object AdbKeycodes {
     android:orientation="vertical"
     android:padding="10dp">
 
-    <!-- Barra de control superior: Asa de arrastre, opacidad y cerrar -->
+    <!-- Barra de control superior: Asa de arrastre y cerrar -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="30dp"
+        android:layout_height="28dp"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
@@ -1031,21 +621,14 @@ object AdbKeycodes {
             android:tint="#858D98" />
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="6dp"
-            android:text="XBOX GAMEPAD OVERLAY"
+            android:layout_weight="1"
+            android:text="MANDO PARSEC"
             android:textColor="#C7CCD4"
             android:textSize="10sp"
             android:textStyle="bold" />
-
-        <SeekBar
-            android:id="@+id/sbOpacity"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:max="100"
-            android:progress="85" />
 
         <ImageButton
             android:id="@+id/btnCloseOverlay"
@@ -1056,229 +639,116 @@ object AdbKeycodes {
             android:tint="#F87171" />
     </LinearLayout>
 
-    <!-- Fila de Gatillos y Bumpers: LT, LB | RB, RT -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:gravity="center"
-        android:orientation="horizontal">
-
-        <Button
-            android:id="@+id/btnTriggerLT"
-            android:layout_width="60dp"
-            android:layout_height="32dp"
-            android:backgroundTint="#242831"
-            android:text="LT"
-            android:textColor="#C7CCD4"
-            android:textSize="10sp" />
-
-        <Button
-            android:id="@+id/btnBumperLB"
-            android:layout_width="60dp"
-            android:layout_height="32dp"
-            android:layout_marginStart="4dp"
-            android:backgroundTint="#2D323E"
-            android:text="LB"
-            android:textColor="#E4E7EB"
-            android:textSize="10sp" />
-
-        <!-- Botones Centrales: View, Guía Nexus Xbox, Menu -->
-        <Button
-            android:id="@+id/btnView"
-            android:layout_width="40dp"
-            android:layout_height="28dp"
-            android:layout_marginStart="16dp"
-            android:backgroundTint="#1F232B"
-            android:text="⧉"
-            android:textColor="#A0A8B4"
-            android:textSize="11sp" />
-
-        <Button
-            android:id="@+id/btnXboxNexus"
-            android:layout_width="38dp"
-            android:layout_height="38dp"
-            android:layout_marginHorizontal="6dp"
-            android:backgroundTint="#107C41"
-            android:text=""
-            android:textColor="#FFFFFF"
-            android:textSize="14sp" />
-
-        <Button
-            android:id="@+id/btnMenu"
-            android:layout_width="40dp"
-            android:layout_height="28dp"
-            android:layout_marginEnd="16dp"
-            android:backgroundTint="#1F232B"
-            android:text="☰"
-            android:textColor="#A0A8B4"
-            android:textSize="11sp" />
-
-        <Button
-            android:id="@+id/btnBumperRB"
-            android:layout_width="60dp"
-            android:layout_height="32dp"
-            android:layout_marginEnd="4dp"
-            android:backgroundTint="#2D323E"
-            android:text="RB"
-            android:textColor="#E4E7EB"
-            android:textSize="10sp" />
-
-        <Button
-            android:id="@+id/btnTriggerRT"
-            android:layout_width="60dp"
-            android:layout_height="32dp"
-            android:backgroundTint="#242831"
-            android:text="RT"
-            android:textColor="#C7CCD4"
-            android:textSize="10sp" />
-    </LinearLayout>
-
-    <!-- CUERPO PRINCIPAL ASIMÉTRICO ESTILO XBOX -->
+    <!-- Contenedor del Mando: Cruceta a la izquierda y ABXY a la derecha -->
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
+        android:gravity="center"
         android:orientation="horizontal">
 
-        <!-- Lado Izquierdo: Joystick Izquierdo (Arriba) y D-Pad (Abajo) -->
-        <LinearLayout
-            android:layout_width="140dp"
-            android:layout_height="wrap_content"
-            android:gravity="center_horizontal"
-            android:orientation="vertical">
+        <!-- Cruceta Direccional (D-Pad) -->
+        <RelativeLayout
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            android:layout_marginEnd="20dp">
 
-            <!-- Joystick Izquierdo (Thumbstick LS) -->
-            <com.parsec.overlaygamepad.JoystickView
-                android:id="@+id/joystickLeft"
-                android:layout_width="88dp"
-                android:layout_height="88dp" />
+            <Button
+                android:id="@+id/btnDpadUp"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_alignParentTop="true"
+                android:layout_centerHorizontal="true"
+                android:backgroundTint="#20242D"
+                android:text="▲"
+                android:textColor="#A0A8B4" />
 
-            <!-- Cruceta D-Pad (Inferior Izquierda) -->
-            <RelativeLayout
-                android:layout_width="96dp"
-                android:layout_height="96dp"
-                android:layout_marginTop="6dp">
+            <Button
+                android:id="@+id/btnDpadLeft"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_alignParentStart="true"
+                android:layout_centerVertical="true"
+                android:backgroundTint="#20242D"
+                android:text="◀"
+                android:textColor="#A0A8B4" />
 
-                <Button
-                    android:id="@+id/btnDpadUp"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:layout_alignParentTop="true"
-                    android:layout_centerHorizontal="true"
-                    android:backgroundTint="#20242D"
-                    android:text="▲"
-                    android:textColor="#A0A8B4"
-                    android:textSize="10sp" />
+            <View
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:layout_centerInParent="true"
+                android:background="#16181D" />
 
-                <Button
-                    android:id="@+id/btnDpadLeft"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:layout_alignParentStart="true"
-                    android:layout_centerVertical="true"
-                    android:backgroundTint="#20242D"
-                    android:text="◀"
-                    android:textColor="#A0A8B4"
-                    android:textSize="10sp" />
+            <Button
+                android:id="@+id/btnDpadRight"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
+                android:backgroundTint="#20242D"
+                android:text="▶"
+                android:textColor="#A0A8B4" />
 
-                <Button
-                    android:id="@+id/btnDpadRight"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:layout_alignParentEnd="true"
-                    android:layout_centerVertical="true"
-                    android:backgroundTint="#20242D"
-                    android:text="▶"
-                    android:textColor="#A0A8B4"
-                    android:textSize="10sp" />
+            <Button
+                android:id="@+id/btnDpadDown"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_alignParentBottom="true"
+                android:layout_centerHorizontal="true"
+                android:backgroundTint="#20242D"
+                android:text="▼"
+                android:textColor="#A0A8B4" />
+        </RelativeLayout>
 
-                <Button
-                    android:id="@+id/btnDpadDown"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:layout_alignParentBottom="true"
-                    android:layout_centerHorizontal="true"
-                    android:backgroundTint="#20242D"
-                    android:text="▼"
-                    android:textColor="#A0A8B4"
-                    android:textSize="10sp" />
-            </RelativeLayout>
-        </LinearLayout>
+        <!-- Botones de Acción (A, B, X, Y) -->
+        <RelativeLayout
+            android:layout_width="120dp"
+            android:layout_height="120dp">
 
-        <!-- Lado Derecho: Botones XYAB (Arriba) y Joystick Derecho (Abajo) -->
-        <LinearLayout
-            android:layout_width="140dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="24dp"
-            android:gravity="center_horizontal"
-            android:orientation="vertical">
+            <Button
+                android:id="@+id/btnActionY"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_alignParentTop="true"
+                android:layout_centerHorizontal="true"
+                android:backgroundTint="#242831"
+                android:text="Y"
+                android:textColor="#FBBF24"
+                android:textStyle="bold" />
 
-            <!-- Diamante ABXY Estilo Xbox -->
-            <RelativeLayout
-                android:layout_width="100dp"
-                android:layout_height="100dp">
+            <Button
+                android:id="@+id/btnActionX"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_alignParentStart="true"
+                android:layout_centerVertical="true"
+                android:backgroundTint="#242831"
+                android:text="X"
+                android:textColor="#60A5FA"
+                android:textStyle="bold" />
 
-                <!-- Y (Amarillo) -->
-                <Button
-                    android:id="@+id/btnActionY"
-                    android:layout_width="34dp"
-                    android:layout_height="34dp"
-                    android:layout_alignParentTop="true"
-                    android:layout_centerHorizontal="true"
-                    android:backgroundTint="#242831"
-                    android:text="Y"
-                    android:textColor="#FBBF24"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
+            <Button
+                android:id="@+id/btnActionB"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
+                android:backgroundTint="#242831"
+                android:text="B"
+                android:textColor="#F87171"
+                android:textStyle="bold" />
 
-                <!-- X (Azul) -->
-                <Button
-                    android:id="@+id/btnActionX"
-                    android:layout_width="34dp"
-                    android:layout_height="34dp"
-                    android:layout_alignParentStart="true"
-                    android:layout_centerVertical="true"
-                    android:backgroundTint="#242831"
-                    android:text="X"
-                    android:textColor="#60A5FA"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
-
-                <!-- B (Rojo) -->
-                <Button
-                    android:id="@+id/btnActionB"
-                    android:layout_width="34dp"
-                    android:layout_height="34dp"
-                    android:layout_alignParentEnd="true"
-                    android:layout_centerVertical="true"
-                    android:backgroundTint="#242831"
-                    android:text="B"
-                    android:textColor="#F87171"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
-
-                <!-- A (Verde) -->
-                <Button
-                    android:id="@+id/btnActionA"
-                    android:layout_width="34dp"
-                    android:layout_height="34dp"
-                    android:layout_alignParentBottom="true"
-                    android:layout_centerHorizontal="true"
-                    android:backgroundTint="#242831"
-                    android:text="A"
-                    android:textColor="#34D399"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
-            </RelativeLayout>
-
-            <!-- Joystick Derecho (Thumbstick RS) -->
-            <com.parsec.overlaygamepad.JoystickView
-                android:id="@+id/joystickRight"
-                android:layout_width="88dp"
-                android:layout_height="88dp"
-                android:layout_marginTop="6dp" />
-        </LinearLayout>
+            <Button
+                android:id="@+id/btnActionA"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_alignParentBottom="true"
+                android:layout_centerHorizontal="true"
+                android:backgroundTint="#242831"
+                android:text="A"
+                android:textColor="#34D399"
+                android:textStyle="bold" />
+        </RelativeLayout>
 
     </LinearLayout>
 </LinearLayout>`,
@@ -1288,7 +758,7 @@ object AdbKeycodes {
     path: 'app/src/main/res/layout/activity_main.xml',
     language: 'xml',
     category: 'layout',
-    description: 'Interfaz en tonos gris oscuro industrial con Hub de Juegos, agregar apps y enlace ADB.',
+    description: 'Diseño de la pantalla de vinculación de depuración inalámbrica y control.',
     content: `<?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -1300,13 +770,12 @@ object AdbKeycodes {
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp">
+        android:padding="20dp">
 
-        <!-- Título Superior -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="XBOX GAME HUB &amp; OVERLAY"
+            android:text="PARSEC OVERLAY GAMEPAD"
             android:textColor="#E4E7EB"
             android:textSize="20sp"
             android:textStyle="bold" />
@@ -1314,12 +783,12 @@ object AdbKeycodes {
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
-            android:text="Lanza tus juegos y transmisiones con mando Xbox flotante nativo"
+            android:layout_marginTop="4dp"
+            android:text="Control de mando flotante mediante ADB inalámbrico local"
             android:textColor="#858D98"
             android:textSize="12sp" />
 
-        <!-- SECCIÓN 1: HUB DE JUEGOS Y APPS -->
+        <!-- Tarjeta 1: Opciones de Desarrollador -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -1328,39 +797,26 @@ object AdbKeycodes {
             android:orientation="vertical"
             android:padding="14dp">
 
-            <LinearLayout
-                android:layout_width="match_parent"
+            <TextView
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
+                android:text="1. DEPURACIÓN INALÁMBRICA"
+                android:textColor="#C7CCD4"
+                android:textSize="12sp"
+                android:textStyle="bold" />
 
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="MIS JUEGOS &amp; APPS"
-                    android:textColor="#C7CCD4"
-                    android:textSize="13sp"
-                    android:textStyle="bold" />
-
-                <Button
-                    android:id="@+id/btnAddCustomGame"
-                    android:layout_width="wrap_content"
-                    android:layout_height="34dp"
-                    android:backgroundTint="#272B33"
-                    android:text="+ AGREGAR JUEGO"
-                    android:textColor="#E4E7EB"
-                    android:textSize="10sp" />
-            </LinearLayout>
-
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rvGames"
+            <Button
+                android:id="@+id/btnOpenDevSettings"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp" />
+                android:layout_height="40dp"
+                android:layout_marginTop="10dp"
+                android:backgroundTint="#20242D"
+                android:text="ABRIR OPCIONES DE DESARROLLADOR"
+                android:textColor="#E4E7EB"
+                android:textSize="11sp" />
         </LinearLayout>
 
-        <!-- SECCIÓN 2: VINCULACIÓN INALÁMBRICA ADB -->
+        <!-- Tarjeta 2: Emparejamiento ADB -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -1372,12 +828,11 @@ object AdbKeycodes {
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="CONEXIÓN ADB LOCAL"
+                android:text="2. EMPAREJAR CON CÓDIGO (PAIRING)"
                 android:textColor="#C7CCD4"
-                android:textSize="13sp"
+                android:textSize="12sp"
                 android:textStyle="bold" />
 
-            <!-- Emparejamiento -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -1391,7 +846,7 @@ object AdbKeycodes {
                     android:layout_marginEnd="6dp"
                     android:layout_weight="1"
                     android:background="#20242C"
-                    android:hint="Puerto pairing (ej: 38291)"
+                    android:hint="Puerto (ej: 38291)"
                     android:inputType="number"
                     android:padding="10dp"
                     android:textColor="#E4E7EB"
@@ -1415,14 +870,31 @@ object AdbKeycodes {
             <Button
                 android:id="@+id/btnPair"
                 android:layout_width="match_parent"
-                android:layout_height="38dp"
-                android:layout_marginTop="6dp"
+                android:layout_height="40dp"
+                android:layout_marginTop="8dp"
                 android:backgroundTint="#2D323E"
-                android:text="EMPAREJAR ADB"
+                android:text="EMPAREJAR ADB (ADB PAIR)"
                 android:textColor="#E4E7EB"
                 android:textSize="11sp" />
+        </LinearLayout>
 
-            <!-- Conexión -->
+        <!-- Tarjeta 3: Conexión Local -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:background="#16181D"
+            android:orientation="vertical"
+            android:padding="14dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="3. CONECTAR ADB LOCALHOST"
+                android:textColor="#C7CCD4"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
             <EditText
                 android:id="@+id/etConnectPort"
                 android:layout_width="match_parent"
@@ -1440,7 +912,7 @@ object AdbKeycodes {
                 android:id="@+id/btnConnect"
                 android:layout_width="match_parent"
                 android:layout_height="40dp"
-                android:layout_marginTop="6dp"
+                android:layout_marginTop="8dp"
                 android:backgroundTint="#107C41"
                 android:text="CONECTAR ADB LOCAL"
                 android:textColor="#FFFFFF"
@@ -1448,19 +920,11 @@ object AdbKeycodes {
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <ProgressBar
-            android:id="@+id/progressBar"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-            android:layout_marginTop="12dp"
-            android:visibility="gone" />
-
         <TextView
             android:id="@+id/tvStatus"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="12dp"
             android:text="Estado: Esperando conexión..."
             android:textColor="#858D98"
             android:textSize="12sp" />
@@ -1468,11 +932,11 @@ object AdbKeycodes {
         <Button
             android:id="@+id/btnToggleOverlay"
             android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_marginTop="16dp"
+            android:layout_height="50dp"
+            android:layout_marginTop="18dp"
             android:layout_marginBottom="24dp"
             android:backgroundTint="#2A303C"
-            android:text="MOSTRAR MANDO FLOTANTE XBOX"
+            android:text="MOSTRAR MANDO FLOTANTE"
             android:textColor="#E4E7EB"
             android:textSize="13sp"
             android:textStyle="bold" />
@@ -1481,53 +945,52 @@ object AdbKeycodes {
 </ScrollView>`,
   },
   {
-    name: 'build.gradle.kts',
-    path: 'app/build.gradle.kts',
+    name: 'strings.xml',
+    path: 'app/src/main/res/values/strings.xml',
+    language: 'xml',
+    category: 'layout',
+    description: 'Definición de cadenas de texto de la aplicación.',
+    content: `<resources>
+    <string name="app_name">Parsec Overlay Gamepad</string>
+</resources>`,
+  },
+  {
+    name: 'colors.xml',
+    path: 'app/src/main/res/values/colors.xml',
+    language: 'xml',
+    category: 'layout',
+    description: 'Paleta de colores oficial de la app.',
+    content: `<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="bg_dark">#FF101216</color>
+    <color name="card_dark">#FF16181D</color>
+    <color name="accent_green">#FF107C41</color>
+</resources>`,
+  },
+  {
+    name: 'themes.xml',
+    path: 'app/src/main/res/values/themes.xml',
+    language: 'xml',
+    category: 'layout',
+    description: 'Tema base sin Action Bar compatible con MaterialComponents.',
+    content: `<resources xmlns:tools="http://schemas.android.com/tools">
+    <style name="Theme.OverlayGamepad" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/accent_green</item>
+        <item name="android:statusBarColor">@color/bg_dark</item>
+        <item name="android:navigationBarColor">@color/bg_dark</item>
+    </style>
+</resources>`,
+  },
+  {
+    name: 'gradle.properties',
+    path: 'gradle.properties',
     language: 'groovy',
     category: 'gradle',
-    description: 'Configuración Gradle con RecyclerView para el catálogo de juegos y Coroutines para ADB.',
-    content: `plugins {
-    alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
-}
-
-android {
-    namespace = "com.parsec.overlaygamepad"
-    compileSdk = 34
-
-    defaultConfig {
-        applicationId = "com.parsec.overlaygamepad"
-        minSdk = 26
-        targetSdk = 34
-        versionCode = 2
-        versionName = "2.0.0"
-    }
-
-    buildTypes {
-        release {
-            isMinifyEnabled = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
-        }
-    }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-}
-
-dependencies {
-    implementation("androidx.core:core-ktx:1.12.0")
-    implementation("androidx.appcompat:appcompat:1.6.1")
-    implementation("com.google.android.material:material:1.11.0")
-    implementation("androidx.recyclerview:recyclerview:1.3.2")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-}`,
+    description: 'Configuración de JVM y AndroidX para el build de Gradle.',
+    content: `org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+android.useAndroidX=true
+android.enableJetifier=true`,
   },
 ];
